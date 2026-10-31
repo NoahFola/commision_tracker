@@ -1,0 +1,245 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* ------------------------------------------------------------------ */
+  /* Semantic palette                                                    */
+  /*                                                                     */
+  /* Keys describe what the colour is FOR, not what colour it IS. When   */
+  /* the designer tweaks the palette, only these values change.          */
+  /* ------------------------------------------------------------------ */
+
+  /* Agent statuses */
+  --badge-active-fg: #15803d;
+  --badge-active-bg: #dcfce7;
+  --badge-inactive-fg: #525252;
+  --badge-inactive-bg: #f5f5f5;
+  --badge-suspended-fg: #b45309;
+  --badge-suspended-bg: #fef3c7;
+  --badge-terminated-fg: #b91c1c;
+  --badge-terminated-bg: #fee2e2;
+
+  /* Commission statuses */
+  --badge-pending-fg: #b45309;
+  --badge-pending-bg: #fef3c7;
+  --badge-verified-fg: #b45309;
+  --badge-verified-bg: #fef3c7;
+  --badge-approved-fg: #1d4ed8;
+  --badge-approved-bg: #dbeafe;
+  --badge-paid-fg: #15803d;
+  --badge-paid-bg: #dcfce7;
+
+  /* Batch statuses */
+  --badge-draft-fg: #b45309;
+  --badge-draft-bg: #fef3c7;
+  --badge-processing-fg: #1d4ed8;
+  --badge-processing-bg: #dbeafe;
+  --badge-failed-fg: #b91c1c;
+  --badge-failed-bg: #fee2e2;
+
+  /* Reversal (special: outlined, not filled) */
+  --badge-reversal-fg: #b91c1c;
+  --badge-reversal-bg: #ffffff;
+  --badge-reversal-border: #b91c1c;
+
+  /* Buttons */
+  --btn-primary-bg: #15803d;
+  --btn-primary-bg-hover: #166534;
+  --btn-primary-fg: #ffffff;
+  --btn-secondary-bg: #ffffff;
+  --btn-secondary-bg-hover: #f5f5f5;
+  --btn-secondary-fg: #171717;
+  --btn-secondary-border: #d4d4d4;
+  --btn-danger-bg: #b91c1c;
+  --btn-danger-bg-hover: #991b1b;
+  --btn-danger-fg: #ffffff;
+  --btn-ghost-fg: #b91c1c;
+  --btn-ghost-fg-hover: #991b1b;
+
+  /* Focus */
+  --focus-ring: #1d4ed8;
+  --focus-ring-offset: #ffffff;
+
+  /* Text hierarchy */
+  --text-primary: #171717;
+  --text-secondary: #525252;
+  --text-tertiary: #a3a3a3;
+
+  /* Surfaces and borders */
+  --surface: #ffffff;
+  --surface-muted: #fafafa;
+  --border-default: #e5e5e5;
+  --border-subtle: #f5f5f5;
+
+  /* Feedback surfaces */
+  --info-bg: #dbeafe;
+  --info-fg: #1d4ed8;
+  --warning-bg: #fef3c7;
+  --warning-fg: #b45309;
+  --danger-bg: #fee2e2;
+  --danger-fg: #b91c1c;
+  --success-bg: #dcfce7;
+  --success-fg: #15803d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-badge-active-fg: var(--badge-active-fg);
+  --color-badge-active-bg: var(--badge-active-bg);
+  --color-badge-inactive-fg: var(--badge-inactive-fg);
+  --color-badge-inactive-bg: var(--badge-inactive-bg);
+  --color-badge-suspended-fg: var(--badge-suspended-fg);
+  --color-badge-suspended-bg: var(--badge-suspended-bg);
+  --color-badge-terminated-fg: var(--badge-terminated-fg);
+  --color-badge-terminated-bg: var(--badge-terminated-bg);
+  --color-badge-pending-fg: var(--badge-pending-fg);
+  --color-badge-pending-bg: var(--badge-pending-bg);
+  --color-badge-verified-fg: var(--badge-verified-fg);
+  --color-badge-verified-bg: var(--badge-verified-bg);
+  --color-badge-approved-fg: var(--badge-approved-fg);
+  --color-badge-approved-bg: var(--badge-approved-bg);
+  --color-badge-paid-fg: var(--badge-paid-fg);
+  --color-badge-paid-bg: var(--badge-paid-bg);
+  --color-badge-draft-fg: var(--badge-draft-fg);
+  --color-badge-draft-bg: var(--badge-draft-bg);
+  --color-badge-processing-fg: var(--badge-processing-fg);
+  --color-badge-processing-bg: var(--badge-processing-bg);
+  --color-badge-failed-fg: var(--badge-failed-fg);
+  --color-badge-failed-bg: var(--badge-failed-bg);
+  --color-badge-reversal-fg: var(--badge-reversal-fg);
+  --color-badge-reversal-bg: var(--badge-reversal-bg);
+  --color-badge-reversal-border: var(--badge-reversal-border);
+
+  --color-btn-primary-bg: var(--btn-primary-bg);
+  --color-btn-primary-bg-hover: var(--btn-primary-bg-hover);
+  --color-btn-primary-fg: var(--btn-primary-fg);
+  --color-btn-secondary-bg: var(--btn-secondary-bg);
+  --color-btn-secondary-bg-hover: var(--btn-secondary-bg-hover);
+  --color-btn-secondary-fg: var(--btn-secondary-fg);
+  --color-btn-secondary-border: var(--btn-secondary-border);
+  --color-btn-danger-bg: var(--btn-danger-bg);
+  --color-btn-danger-bg-hover: var(--btn-danger-bg-hover);
+  --color-btn-danger-fg: var(--btn-danger-fg);
+  --color-btn-ghost-fg: var(--btn-ghost-fg);
+  --color-btn-ghost-fg-hover: var(--btn-ghost-fg-hover);
+
+  --color-focus-ring: var(--focus-ring);
+  --color-focus-ring-offset: var(--focus-ring-offset);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border-default: var(--border-default);
+  --color-border-subtle: var(--border-subtle);
+
+  --color-info-bg: var(--info-bg);
+  --color-info-fg: var(--info-fg);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-fg: var(--warning-fg);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-fg: var(--danger-fg);
+  --color-success-bg: var(--success-bg);
+  --color-success-fg: var(--success-fg);
+
+  /* Font family — swap to IBM Plex Sans when the asset is ready. */
+  --font-sans: var(--font-app-sans, ui-sans-serif, system-ui, -apple-system, sans-serif);
+  --font-mono: var(--font-app-mono, ui-monospace, "SF Mono", Menlo, monospace);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------ */
+/* Utilities                                                           */
+/* ------------------------------------------------------------------ */
+
+@layer utilities {
+  /* Tabular figures for aligned amounts. The design uses IBM Plex
+     Sans's tabular numerals; the `font-variant-numeric` property
+     applies to whatever font is loaded, so this utility works with
+     the system stack too. */
+  .amount {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* Consistent focus ring across every interactive element. */
+  .focus-ring {
+    @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Print                                                               */
+/* ------------------------------------------------------------------ */
+
+@media print {
+  /* Hide interactive chrome */
+  [data-print-hide="true"],
+  nav,
+  header[data-print-hide="true"],
+  aside[data-print-hide="true"] {
+    display: none !important;
+  }
+
+  /* Page setup: A4 portrait, moderate margins */
+  @page {
+    size: A4 portrait;
+    margin: 16mm 12mm;
+  }
+
+  /* Force readable print colours */
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11px;
+  }
+
+  /* No shadows or rounded corners */
+  section,
+  table,
+  td,
+  th,
+  div {
+    box-shadow: none !important;
+  }
+
+  /* Table borders */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  th,
+  td {
+    border-bottom: 1px solid #ccc;
+    padding: 4px 6px;
+    vertical-align: bottom;
+  }
+
+  /* Page breaks */
+  .print-page-break {
+    page-break-before: always;
+  }
+  tr {
+    page-break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+
+  /* Link URLs hidden — we're printing, not clicking */
+  a[href]::after {
+    content: "";
+  }
+}

