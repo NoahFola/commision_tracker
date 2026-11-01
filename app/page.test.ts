@@ -43,7 +43,7 @@ vi.mock('next/navigation', () => ({
 
 afterEach(() => cleanup());
 
-import Home from './page';
+import Home from './(agent)/page';
 import { makeAdminUser } from '@/lib/auth/__test__/fixtures';
 
 describe.skipIf(!hasTestDb)('agent home page', () => {

@@ -53,7 +53,7 @@ export type AggregateBucket = {
   propertiesReferred: number;
   landlordsOnboarded: number;
   tenantsOnboarded: number;
-  revenueAttributed: { amount: number; currency: string };
+  revenueAttributed: Money;
   eventCount: number;
 };
 
@@ -353,7 +353,7 @@ export async function aggregateEvents(
           : dayKey.slice(0, 7); // 'YYYY-MM'
 
     const amount = (d.revenueAttributed as { amount: number }).amount;
-    const currency = (d.revenueAttributed as { currency: string }).currency;
+    const currency = (d.revenueAttributed as { currency: string }).currency as import('@/lib/money').Currency;
 
     const existing = buckets.get(periodKey);
     if (!existing) {

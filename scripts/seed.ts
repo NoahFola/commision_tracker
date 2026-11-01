@@ -252,8 +252,8 @@ async function seed() {
 
   console.log('\nSeed complete.');
   console.log(`  Admin: sign in with your existing account.`);
-  console.log(`  Agent: ${AGENTS[0].email} / ${AGENT_PASSWORD}`);
-  console.log(`  Agent: ${AGENTS[1].email} / ${AGENT_PASSWORD}`);
+  console.log(`  Agent: ${AGENTS[0]?.email} / ${AGENT_PASSWORD}`);
+  console.log(`  Agent: ${AGENTS[1]?.email} / ${AGENT_PASSWORD}`);
 
   await disconnectDb();
   process.exit(0);
@@ -482,6 +482,7 @@ async function seedPerformanceEvents(
   manifest: SeedManifest,
 ) {
   for (const agent of agents) {
+    if (!agent) continue;
     for (let m = 5; m >= 0; m--) {
       for (let d = 1; d <= 5; d++) {
         const day = new Date();

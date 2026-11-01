@@ -87,7 +87,7 @@ export default async function AgentPerformancePage({
       <AgentPerformanceMonthPicker period={period} />
 
       <AgentPerformanceHero
-        revenue={monthBucket?.revenueAttributed ?? { amount: 0, currency: 'XAF' }}
+        revenue={monthBucket?.revenueAttributed ?? { amount: 0, currency: 'XAF' as const }}
       />
 
       <AgentPerformanceMetrics bucket={metrics} />

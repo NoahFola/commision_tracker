@@ -28,7 +28,7 @@ export type PerformanceChartPoint = {
  */
 const BAR_COLOUR = '#15803d';
 
-export default function PerformanceChart({
+export function PerformanceChart({
   data,
   format,
 }: {
@@ -79,3 +79,5 @@ export default function PerformanceChart({
     </div>
   );
 }
+
+export default PerformanceChart;

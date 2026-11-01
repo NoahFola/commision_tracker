@@ -27,7 +27,7 @@ const buckets = [
     propertiesReferred: 1,
     landlordsOnboarded: 0,
     tenantsOnboarded: 1,
-    revenueAttributed: { amount: 120000, currency: 'XAF' },
+    revenueAttributed: { amount: 120000, currency: 'XAF' as const },
     eventCount: 2,
   },
   {
@@ -37,7 +37,7 @@ const buckets = [
     propertiesReferred: 2,
     landlordsOnboarded: 1,
     tenantsOnboarded: 1,
-    revenueAttributed: { amount: 300000, currency: 'XAF' },
+    revenueAttributed: { amount: 300000, currency: 'XAF' as const },
     eventCount: 3,
   },
 ];

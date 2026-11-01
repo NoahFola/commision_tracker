@@ -13,7 +13,9 @@ export function AgentPerformanceMonthPicker({ period }: { period: string }) {
   const search = useSearchParams();
 
   function navigate(deltaMonths: number) {
-    const [y, m] = period.split('-').map(Number);
+    const [yStr, mStr] = period.split('-');
+    const y = Number(yStr) || 0;
+    const m = Number(mStr) || 1;
     const d = new Date(Date.UTC(y, m - 1 + deltaMonths, 1));
     const next = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
     const params = new URLSearchParams(search.toString());
